@@ -1,4 +1,4 @@
-//! DesignCraft desktop app.
+//! Atelier Press desktop app (built on DesignCraft).
 //!
 //! Usage: `designcraft [--control <port>] [--sample] [files…]`
 //!
@@ -70,9 +70,9 @@ impl eframe::App for App {
 /// The per-user settings directory: `ui.json`, `prefs.json`, `gpu.json` and `logs/` live here.
 fn config_dir() -> Option<std::path::PathBuf> {
     if cfg!(target_os = "macos") {
-        std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join("Library/Application Support/DesignCraft"))
+        std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join("Library/Application Support/Atelier Press"))
     } else if cfg!(windows) {
-        std::env::var_os("APPDATA").map(|a| std::path::PathBuf::from(a).join("DesignCraft"))
+        std::env::var_os("APPDATA").map(|a| std::path::PathBuf::from(a).join("Atelier Press"))
     } else {
         std::env::var_os("XDG_CONFIG_HOME")
             .map(std::path::PathBuf::from)
@@ -181,8 +181,8 @@ fn open_filters(purpose: &str) -> &'static [OpenFilter] {
             OpenFilter { name: "Video and sound", extensions: &["mp4", "m4v", "mov", "webm", "mp3", "m4a", "wav", "ogg"] },
         ],
         _ => &[
-            OpenFilter { name: "DesignCraft or IDML", extensions: &["designcraft", "idml"] },
-            OpenFilter { name: "DesignCraft", extensions: &["designcraft"] },
+            OpenFilter { name: "Atelier Press or IDML", extensions: &["designcraft", "idml"] },
+            OpenFilter { name: "Atelier Press", extensions: &["designcraft"] },
             OpenFilter { name: "InDesign Markup (IDML)", extensions: &["idml"] },
         ],
     }
@@ -251,14 +251,14 @@ fn main() -> eframe::Result {
     // leaves no file behind. Records logged until now are written to it first.
     if let (Some(logger), Some(dir)) = (logger, config_dir()) {
         match logger.attach_dir(&dir.join("logs")) {
-            Ok(path) => log::info!("DesignCraft {}, log file {}", env!("CARGO_PKG_VERSION"), path.display()),
+            Ok(path) => log::info!("Atelier Press {}, log file {}", env!("CARGO_PKG_VERSION"), path.display()),
             // Standard error only by now (`attach_dir` gave up on the file); unlike `eprintln!`, never panics.
             Err(e) => log::warn!("no log file: {e}"),
         }
     }
     let mut options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("DesignCraft")
+            .with_title("Atelier Press")
             .with_inner_size([1440.0, 900.0])
             .with_min_inner_size([900.0, 560.0])
             .with_drag_and_drop(true)
@@ -290,7 +290,7 @@ fn main() -> eframe::Result {
         }));
     }
     eframe::run_native(
-        "DesignCraft",
+        "Atelier Press",
         options,
         Box::new(move |cc| {
             let mut gpu = gpu;

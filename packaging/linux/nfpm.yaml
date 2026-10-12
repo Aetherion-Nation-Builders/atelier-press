@@ -13,11 +13,11 @@ release: 1
 section: graphics
 priority: optional
 maintainer: ${DESIGNCRAFT_MAINTAINER}
-vendor: Learning Machines LLC
-homepage: https://getartcraft.com/apps/designcraft
+vendor: Aetherion Nation
+homepage: https://www.aetherionnnation.com/atelier/press
 license: MIT OR Apache-2.0
 description: |-
-  Open-source, native page layout and publishing that works the way InDesign users expect.
+  Atelier Press, the Nation's page layout app (built on DesignCraft). Open-source, native page layout and publishing that works the way InDesign users expect.
   Spreads and parent pages, threaded text frames, paragraph and character styles, swatches,
   text wrap and a Knuth-Plass paragraph composer; IDML import and export.
   Includes designcraft-cli, a headless renderer and command runner.

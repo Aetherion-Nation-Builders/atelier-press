@@ -142,15 +142,15 @@ pub const UI_COMMANDS: &[(&str, &str, Option<&str>, &str)] = &[
         "{on?: bool, at?: [x, y] (points from the canvas's top-left)} — the Contextual Task Bar stays where it is (or at `at`) instead of following the selection; with neither, toggles",
     ),
     ("window.taskBarReset", "Reset Bar Position", None, "{} — the Contextual Task Bar follows the selection again, under it"),
-    ("help.discord", "Join the ArtCraft Discord…", None, "{} — opens https://discord.gg/artcraft in the browser"),
-    ("help.appPage", "DesignCraft Website…", None, "{} — opens https://getartcraft.com/apps/designcraft"),
-    ("help.github", "DesignCraft on GitHub…", None, "{} — opens https://github.com/storytold/designcraft"),
+    ("help.discord", "Join the Nation…", None, "{} — opens https://www.aetherionnnation.com in the browser"),
+    ("help.appPage", "Atelier Press Website…", None, "{} — opens https://www.aetherionnnation.com/atelier/press"),
+    ("help.github", "Atelier Press on GitHub…", None, "{} — opens https://github.com/Aetherion-Nation-Builders/atelier-press"),
     ("help.issues", "Report an Issue…", None, "{} — opens the GitHub issue tracker"),
-    ("help.website", "ArtCraft Website…", None, "{} — opens https://getartcraft.com"),
-    ("help.app", "ArtCraft App Page…", None, "{app} — opens https://getartcraft.com/apps/{app} (e.g. photocraft)"),
+    ("help.website", "Atelier Website…", None, "{} — opens https://www.aetherionnnation.com/atelier"),
+    ("help.app", "Atelier App Page…", None, "{app} — opens https://www.aetherionnnation.com/atelier/{app} (e.g. pigment)"),
     (
         "help.about",
-        "About DesignCraft",
+        "About Atelier Press",
         None,
         "{open?: true, tab?: \"about\"|\"contributors\"|\"models\"} — the About window: splash with community links, contributor and model credits (open: false closes it)",
     ),
@@ -1351,11 +1351,11 @@ pub fn run_ui(app: &mut DesignApp, id: &str, p: &Value) -> Option<Result<Value, 
         }
         "help.app" => match p.get("app").and_then(Value::as_str) {
             Some(slug) if !slug.is_empty() && slug.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') => {
-                let url = format!("{}/apps/{slug}", designcraft_engine::links::WEBSITE);
+                let url = format!("{}/{slug}", designcraft_engine::links::WEBSITE);
                 app.ui.pending_urls.push(url.clone());
                 Ok(json!({"url": url}))
             }
-            _ => Err("help.app: give `app` (e.g. \"photocraft\")".into()),
+            _ => Err("help.app: give `app` (e.g. \"pigment\")".into()),
         },
         h if h.starts_with("help.") && designcraft_engine::links::get(&h[5..]).is_some() => {
             let url = designcraft_engine::links::get(&h[5..]).unwrap_or_default().to_string();
