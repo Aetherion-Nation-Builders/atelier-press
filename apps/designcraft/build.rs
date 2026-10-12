@@ -14,10 +14,11 @@ fn main() {
     }
     let mut res = winresource::WindowsResource::new();
     res.set_icon("../../assets/app-icon/designcraft.ico")
-        .set("ProductName", "DesignCraft")
-        .set("FileDescription", "DesignCraft page layout")
+        .set("ProductName", "Atelier Press")
+        .set("FileDescription", "Atelier Press page layout")
         .set("CompanyName", "Learning Machines LLC")
-        .set("LegalCopyright", "Copyright (c) the DesignCraft authors. MIT OR Apache-2.0.")
+        .set("CompanyName", "Aetherion Nation")
+        .set("LegalCopyright", "Copyright (c) Aetherion Nation and the DesignCraft authors. MIT OR Apache-2.0.")
         .set("OriginalFilename", "designcraft.exe")
         .set("InternalName", "designcraft");
     if let Err(e) = res.compile() {
