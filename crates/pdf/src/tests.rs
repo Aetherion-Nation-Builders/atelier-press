@@ -202,6 +202,18 @@ fn tables_export_cell_text() {
     }
 }
 
+#[test]
+fn drop_cap_text_extracts_in_order() {
+    let mut d = Document::new(&NewDocument::default());
+    let lid = d.default_layer();
+    let para = designcraft_doc::ParaAttrs { drop_cap_lines: Some(3), drop_cap_chars: Some(2), ..Default::default() };
+    let text = "Drop caps read in order with the rest of the paragraph, which runs on for a few lines beside the enlarged letters.";
+    d.add_text_frame(SpreadRef::Doc(0), Rect::new(36.0, 36.0, 236.0, 300.0), lid, text, ParaFormat { para, ..Default::default() }).unwrap();
+    let bytes = export_pdf(&d, &Cache::new(), &PdfOptions::default()).unwrap();
+    let flat: String = extract_text(&bytes)[0].split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(flat.starts_with("Drop caps read in order"), "{flat}");
+}
+
 /// A 4×2 CMYK TIFF: the left half 100% K (text in a scan), the right half C0 M100 Y100 K0.
 fn cmyk_tiff() -> (Vec<u8>, Vec<u8>) {
     let (k, red) = ([0u8, 0, 0, 255], [0u8, 255, 255, 0]);
@@ -445,4 +457,27 @@ fn column_rules_are_drawn() {
     assert_eq!(xs.len(), 2, "{xs:?}");
     assert!((xs[0] - 214.0).abs() < 0.01 && (xs[1] - 398.0).abs() < 0.01, "{xs:?}");
     assert!(rules(false).is_empty());
+}
+
+#[test]
+fn extreme_page_selection_is_a_page_error_without_overflow() {
+    let doc = doc_with_text("Bounded page selection");
+    let opts = PdfOptions { pages: Some(vec![usize::MAX]), ..Default::default() };
+    assert_eq!(export_pdf(&doc, &Cache::new(), &opts), Err(PdfError::BadPage(usize::MAX)));
+}
+
+#[test]
+fn empty_and_populated_export_metadata_preserve_key_presence() {
+    let mut d = Document::new(&NewDocument::default());
+    d.title.clear();
+    let s = uncompressed(&d, PdfOptions::default());
+    for key in ["/Title", "/Author", "<dc:title>", "<dc:creator>"] {
+        assert!(!s.contains(key), "unexpected empty metadata {key}");
+    }
+    d.title = "Synthetic title".into();
+    let s = uncompressed(&d, PdfOptions { author: Some("Test author".into()), created: Some(1_700_000_000), ..Default::default() });
+    for key in ["/Title", "/Author", "/CreationDate", "<dc:title>", "<dc:creator>"] {
+        assert!(s.contains(key), "missing populated metadata {key}");
+    }
+    assert!(s.contains("Synthetic title") && s.contains("Test author"));
 }

@@ -3,6 +3,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use craft_pdf::write::backend as krilla;
+use craft_pdf::write::{self, Metadata, Writer};
 use designcraft_color::swatch::{ColorType, SwatchValue};
 use designcraft_color::{BlendMode as DcBlend, Color, GradientKind};
 use designcraft_compose::Cache;
@@ -10,10 +12,9 @@ use designcraft_doc::{AssetId, Content, Document, Item, PageSide, Spread, Stroke
 use designcraft_geom::kurbo::{PathEl, Shape as _};
 use designcraft_geom::{Affine, BezPath, Rect, Vec2, corners};
 use krilla::color::{cmyk, luma, rgb};
-use krilla::configure::{Archival, ConfigurationBuilder, PdfVersion};
+use krilla::configure::{Archival, PdfVersion};
 use krilla::geom::{Path, PathBuilder, Size, Transform};
 use krilla::image::Image;
-use krilla::metadata::Metadata;
 use krilla::num::NormalizedF32;
 use krilla::page::PageSettings;
 use krilla::paint::{Fill, FillRule, LinearGradient, RadialGradient, SpreadMethod, Stop, Stroke, StrokeDash};
@@ -59,13 +60,13 @@ fn sheets(doc: &Document, opts: &PdfOptions) -> Result<Vec<Sheet>> {
         return Err(PdfError::NoPages);
     }
     if let Some(bad) = pages.iter().find(|p| **p >= count) {
-        return Err(PdfError::BadPage(bad + 1));
+        return Err(PdfError::BadPage(bad.saturating_add(1)));
     }
     let b = doc.settings.bleed.map(|v| if opts.bleed { v.max(0.0) } else { 0.0 });
     let mut out: Vec<Sheet> = Vec::new();
     let mut seen_spreads: Vec<usize> = Vec::new();
     for abs in pages {
-        let (si, pi) = doc.page_loc(abs).ok_or(PdfError::BadPage(abs + 1))?;
+        let (si, pi) = doc.page_loc(abs).ok_or(PdfError::BadPage(abs.saturating_add(1)))?;
         let sp: &Spread = &doc.spreads[si];
         let (trim, l, r, label) = if opts.spreads {
             if seen_spreads.contains(&si) {
@@ -101,6 +102,10 @@ pub(crate) fn mark_start(opts: &PdfOptions, bleed: [f64; 4]) -> f64 {
 
 /// Like [`export_pdf`], also returning warnings about approximated or dropped features.
 pub fn export_pdf_with_report(doc: &Document, cache: &Cache, opts: &PdfOptions) -> Result<ExportReport> {
+    write::guard(|| export_pdf_with_report_inner(doc, cache, opts))
+}
+
+fn export_pdf_with_report_inner(doc: &Document, cache: &Cache, opts: &PdfOptions) -> Result<ExportReport> {
     let sheets = sheets(doc, opts)?;
     let warnings = Vec::new();
     let (version, archival) = match opts.standard {
@@ -108,37 +113,20 @@ pub fn export_pdf_with_report(doc: &Document, cache: &Cache, opts: &PdfOptions) 
         Standard::PdfX4 => (PdfVersion::Pdf16, None),
         Standard::PdfA2b => (PdfVersion::Pdf17, Some(Archival::A2_B)),
     };
-    let mut cb = ConfigurationBuilder::new().with_version(version);
-    if let Some(a) = archival {
-        cb = cb.with_archival_validator(a);
-    }
-    let configuration = cb.finish().map_err(|e| PdfError::Write(format!("{e:?}")))?;
+    let configuration = write::configuration(version, archival)?;
     let settings = krilla::SerializeSettings { compress_content_streams: opts.compress, configuration, ..Default::default() };
-    let mut pdf = krilla::Document::new_with(settings);
-
     let title = opts.title.clone().unwrap_or_else(|| doc.title.clone());
-    let mut meta = Metadata::new().creator("Atelier Press".into()).producer("Atelier Press".into());
-    if !title.is_empty() {
-        meta = meta.title(title.clone());
-    }
-    if let Some(a) = &opts.author {
-        meta = meta.authors(vec![a.clone()]);
-    }
     let created = opts.created.or_else(now_unix);
-    if let Some(t) = created {
-        let c = civil(t);
-        meta = meta.creation_date(
-            krilla::metadata::DateTime::new(c.0.clamp(0, 9999) as u16)
-                .month(c.1)
-                .day(c.2)
-                .hour(c.3)
-                .minute(c.4)
-                .second(c.5)
-                .utc_offset_hour(0)
-                .utc_offset_minute(0),
-        );
-    }
-    pdf.set_metadata(meta);
+    let metadata = Metadata {
+        creator: "Atelier Press".into(),
+        producer: "Atelier Press".into(),
+        title: Some(title.clone()),
+        authors: opts.author.iter().cloned().collect(),
+        created: created.map(date_time),
+        ..Default::default()
+    };
+    let mut writer = Writer::new(settings, metadata);
+    let pdf = writer.document_mut();
 
     let mut ex = Exporter {
         doc,
@@ -182,6 +170,8 @@ pub fn export_pdf_with_report(doc: &Document, cache: &Cache, opts: &PdfOptions) 
         let settings = PageSettings::new(size).with_trim_box(local(sh.trim)).with_bleed_box(local(sh.bleed));
         let mut page = pdf.start_page_with(settings);
         let mut s = page.surface();
+        #[cfg(all(test, not(target_arch = "wasm32")))]
+        unwind_tests::inject(&mut s);
         s.push_transform(&tf(Affine::translate(-sh.media.origin().to_vec2())));
         ex.clip = sh.bleed;
         if let Some(clip) = to_path(&sh.bleed.to_path(0.1)) {
@@ -207,7 +197,7 @@ pub fn export_pdf_with_report(doc: &Document, cache: &Cache, opts: &PdfOptions) 
         pdf.set_tag_tree(ex.tag_tree());
     }
     ex.check_placed_versions()?;
-    let mut bytes = pdf.finish().map_err(|e| PdfError::Write(format!("{e:?}")))?;
+    let mut bytes = writer.finish().map_err(PdfError::from)?;
     // Transparency blends in the document's blend space: CMYK for print (and always in PDF/X).
     let mut warnings = ex.warnings;
     if !ex.rgb_only && (doc.settings.blend_space == designcraft_doc::BlendSpace::Cmyk || opts.standard == Standard::PdfX4) {
@@ -245,12 +235,14 @@ pub fn export_pdf_with_report(doc: &Document, cache: &Cache, opts: &PdfOptions) 
 /// One PDF from several (a book's documents), every page carried over as vectors; each part
 /// comes with its pages' sizes (points).
 pub fn merge_pdfs(parts: &[(Vec<u8>, Vec<(f32, f32)>)], title: Option<&str>) -> Result<Vec<u8>> {
-    let mut pdf = krilla::Document::new_with(krilla::SerializeSettings::default());
-    let mut meta = Metadata::new().creator("Atelier Press".into()).producer("Atelier Press".into());
-    if let Some(t) = title {
-        meta = meta.title(t.to_string());
-    }
-    pdf.set_metadata(meta);
+    write::guard(|| merge_pdfs_inner(parts, title))
+}
+
+fn merge_pdfs_inner(parts: &[(Vec<u8>, Vec<(f32, f32)>)], title: Option<&str>) -> Result<Vec<u8>> {
+    let metadata =
+        Metadata { creator: "Atelier Press".into(), producer: "Atelier Press".into(), title: title.map(str::to_owned), ..Default::default() };
+    let mut writer = Writer::new(krilla::SerializeSettings::default(), metadata);
+    let pdf = writer.document_mut();
     let mut pages = 0;
     for (bytes, sizes) in parts {
         let src = krilla::pdf::Pdf::new(Arc::new(bytes.clone())).map_err(|e| PdfError::Write(format!("{e:?}")))?;
@@ -259,6 +251,8 @@ pub fn merge_pdfs(parts: &[(Vec<u8>, Vec<(f32, f32)>)], title: Option<&str>) -> 
             let size = Size::from_wh(w.max(1.0), h.max(1.0)).ok_or(PdfError::NoPages)?;
             let mut page = pdf.start_page_with(PageSettings::new(size));
             let mut s = page.surface();
+            #[cfg(all(test, not(target_arch = "wasm32")))]
+            unwind_tests::inject(&mut s);
             s.draw_pdf_page(&doc, size, i);
             s.finish();
             page.finish();
@@ -268,7 +262,7 @@ pub fn merge_pdfs(parts: &[(Vec<u8>, Vec<(f32, f32)>)], title: Option<&str>) -> 
     if pages == 0 {
         return Err(PdfError::NoPages);
     }
-    pdf.finish().map_err(|e| PdfError::Write(format!("{e:?}")))
+    writer.finish().map_err(PdfError::from)
 }
 
 /// File › Print Booklet: how pages pair up on printer spreads.
@@ -303,19 +297,20 @@ pub fn booklet_pairs(n: usize, kind: BookletKind) -> Vec<(Option<usize>, Option<
 
 /// An imposed PDF: two document pages per sheet, in booklet order.
 pub fn export_booklet(doc: &Document, cache: &Cache, opts: &BookletOptions) -> Result<ExportReport> {
+    write::guard(|| export_booklet_inner(doc, cache, opts))
+}
+
+fn export_booklet_inner(doc: &Document, cache: &Cache, opts: &BookletOptions) -> Result<ExportReport> {
     let n = doc.page_count();
     if n == 0 {
         return Err(PdfError::NoPages);
     }
     let pdf_opts = PdfOptions { title: opts.title.clone(), ..PdfOptions::default() };
     let settings = krilla::SerializeSettings { compress_content_streams: true, ..Default::default() };
-    let mut pdf = krilla::Document::new_with(settings);
     let title = opts.title.clone().unwrap_or_else(|| doc.title.clone());
-    let mut meta = Metadata::new().creator("Atelier Press".into()).producer("Atelier Press".into());
-    if !title.is_empty() {
-        meta = meta.title(title);
-    }
-    pdf.set_metadata(meta);
+    let metadata = Metadata { creator: "Atelier Press".into(), producer: "Atelier Press".into(), title: Some(title), ..Default::default() };
+    let mut writer = Writer::new(settings, metadata);
+    let pdf = writer.document_mut();
     let mut ex = Exporter {
         doc,
         cache,
@@ -355,6 +350,8 @@ pub fn export_booklet(doc: &Document, cache: &Cache, opts: &BookletOptions) -> R
     for (left, right) in &pairs {
         let mut page = pdf.start_page_with(PageSettings::new(size));
         let mut s = page.surface();
+        #[cfg(all(test, not(target_arch = "wasm32")))]
+        unwind_tests::inject(&mut s);
         for (slot, abs) in [(0.0, left), (pw + gap, right)] {
             let Some((si, pi)) = abs.and_then(|a| doc.page_loc(a)) else { continue };
             let p = &doc.spreads[si].pages[pi];
@@ -374,7 +371,7 @@ pub fn export_booklet(doc: &Document, cache: &Cache, opts: &BookletOptions) -> R
         page.finish();
     }
     ex.check_placed_versions()?;
-    let mut bytes = pdf.finish().map_err(|e| PdfError::Write(format!("{e:?}")))?;
+    let mut bytes = writer.finish().map_err(PdfError::from)?;
     if doc.settings.blend_space == designcraft_doc::BlendSpace::Cmyk {
         crate::pdfx::cmyk_group_spaces(&mut bytes);
     }
@@ -391,6 +388,18 @@ fn now_unix() -> Option<i64> {
 #[cfg(target_arch = "wasm32")]
 fn now_unix() -> Option<i64> {
     None
+}
+
+fn date_time(t: i64) -> krilla::metadata::DateTime {
+    let c = civil(t);
+    krilla::metadata::DateTime::new(c.0.clamp(0, 9999) as u16)
+        .month(c.1)
+        .day(c.2)
+        .hour(c.3)
+        .minute(c.4)
+        .second(c.5)
+        .utc_offset_hour(0)
+        .utc_offset_minute(0)
 }
 
 /// Unix seconds (UTC) → (year, month, day, hour, minute, second), proleptic Gregorian.
@@ -630,7 +639,6 @@ impl Exporter<'_> {
                 let Some((ppi, ppage)) = doc.parent_page_for(first + pi) else { continue };
                 let parent = &doc.parents[ppi];
                 let dx = page.x - parent.pages[ppage].x;
-                let page_name = doc.page_name(first + pi);
                 for it in &parent.items {
                     if it.layer != layer.id || page.overridden.contains(&it.id) {
                         continue;
@@ -639,7 +647,7 @@ impl Exporter<'_> {
                     if parent.page_at_x(it.bounds().center().x) != Some(ppage) && parent.pages.len() > 1 {
                         continue;
                     }
-                    self.top_item(s, it, Affine::translate((dx, 0.0)), Some(&page_name), true);
+                    self.top_item(s, it, Affine::translate((dx, 0.0)), Some(first + pi), true);
                 }
             }
             for it in &sp.items {
@@ -679,9 +687,9 @@ impl Exporter<'_> {
     }
 
     /// A spread or parent item, inside its structure tag when tagging.
-    fn top_item(&mut self, s: &mut Surface, it: &Item, parent: Affine, page_name: Option<&str>, on_parent: bool) {
+    fn top_item(&mut self, s: &mut Surface, it: &Item, parent: Affine, page: Option<usize>, on_parent: bool) {
         if !self.opts.tagged || it.hidden || it.nonprinting {
-            return self.item(s, it, parent, page_name);
+            return self.item(s, it, parent, page);
         }
         let story = it.text_frame().map(|t| t.story);
         let figure = !it.alt_text.is_empty() || matches!(it.content, Content::Graphic(_)) || it.has_nested_items();
@@ -689,7 +697,7 @@ impl Exporter<'_> {
             // Page furniture and decoration.
             let kind = if on_parent { ArtifactType::Page } else { ArtifactType::Other };
             s.start_tagged(ContentTag::Artifact(Artifact::new(kind, None)));
-            self.item(s, it, parent, page_name);
+            self.item(s, it, parent, page);
             s.end_tagged();
             return;
         }
@@ -700,12 +708,12 @@ impl Exporter<'_> {
                 self.tags.push(TagEntry::Story(sid));
             }
             self.tag_story = Some(sid);
-            self.item(s, it, parent, page_name);
+            self.item(s, it, parent, page);
             self.tag_story = None;
             return;
         }
         let id = s.start_tagged(ContentTag::Other);
-        self.item(s, it, parent, page_name);
+        self.item(s, it, parent, page);
         s.end_tagged();
         let alt = (!it.alt_text.is_empty()).then(|| it.alt_text.clone());
         let mut g = TagGroup::new(Tag::Figure(alt));
@@ -751,10 +759,10 @@ impl Exporter<'_> {
         tree
     }
 
-    fn item(&mut self, s: &mut Surface, it: &Item, parent: Affine, page_name: Option<&str>) {
+    fn item(&mut self, s: &mut Surface, it: &Item, parent: Affine, page: Option<usize>) {
         let gf = &it.effects.gradient_feather;
         if !gf.on || it.hidden || it.nonprinting {
-            return self.item_inner(s, it, parent, page_name);
+            return self.item_inner(s, it, parent, page);
         }
         // Gradient feather: a luminosity mask (white = opaque) over the object.
         let xf = parent * it.xf;
@@ -804,11 +812,11 @@ impl Exporter<'_> {
         ms.finish();
         let stream = sb.finish();
         s.push_mask(krilla::mask::Mask::new(stream, krilla::mask::MaskType::Luminosity));
-        self.item_inner(s, it, parent, page_name);
+        self.item_inner(s, it, parent, page);
         s.pop();
     }
 
-    fn item_inner(&mut self, s: &mut Surface, it: &Item, parent: Affine, page_name: Option<&str>) {
+    fn item_inner(&mut self, s: &mut Surface, it: &Item, parent: Affine, page: Option<usize>) {
         if it.hidden || it.nonprinting {
             return;
         }
@@ -843,7 +851,7 @@ impl Exporter<'_> {
                 s.push_clip_path(c, &FillRule::NonZero);
             }
             for c in it.children() {
-                self.item(s, c, xf, page_name);
+                self.item(s, c, xf, page);
             }
             if clip.is_some() {
                 s.pop();
@@ -863,7 +871,7 @@ impl Exporter<'_> {
         if !it.children().is_empty() {
             let pushes = Self::push_group(s, it.opacity, it.blend) + Self::push_isolation(s, it);
             for c in it.shown_children() {
-                self.item(s, c, xf, page_name);
+                self.item(s, c, xf, page);
             }
             for _ in 0..pushes {
                 s.pop();
@@ -921,7 +929,7 @@ impl Exporter<'_> {
                 }
             }
             Content::Text(tfr) => {
-                let cs = self.cache.get(doc, tfr.story, page_name);
+                let cs = self.cache.get(doc, tfr.story, page);
                 if let (Some(ft), Some(pt)) = (cs.frame(it.id), &tfr.options.path) {
                     // Type on a path: the glyphs as outlines along the path.
                     for (si, gp) in designcraft_compose::path_glyphs(&cs, ft, &bp, pt) {
@@ -966,11 +974,11 @@ impl Exporter<'_> {
         if let Content::Text(tfr) = &it.content
             && let Some(st) = doc.story(tfr.story).filter(|st| !st.objects.is_empty())
         {
-            let cs = self.cache.get(doc, tfr.story, page_name);
+            let cs = self.cache.get(doc, tfr.story, page);
             if let Some(ft) = cs.frame(it.id) {
                 for o in &ft.objects {
                     if let Some(obj) = st.objects.get(o.index) {
-                        self.item(s, &obj.item, xf * Affine::translate(o.origin.to_vec2()), page_name);
+                        self.item(s, &obj.item, xf * Affine::translate(o.origin.to_vec2()), page);
                     }
                 }
             }
@@ -982,7 +990,15 @@ impl Exporter<'_> {
         let (swatch, tint, angle) = (fill.swatch.as_str(), fill.tint, fill.gradient_angle);
         if let Some(g) = designcraft_color::swatch::resolve_gradient(&self.doc.swatches, swatch) {
             let kind = g.kind;
-            let expanded = g.expanded_stops();
+            let mut expanded = g.expanded_stops();
+            // Grey and CMYK stops blend as inks, so a grey stop beside a CMYK one is the K ink.
+            if !self.rgb_only && expanded.iter().any(|(_, c, _)| matches!(c, Color::Cmyk { .. })) {
+                for (_, c, _) in &mut expanded {
+                    if let Color::Gray { k } = *c {
+                        *c = Color::cmyk(0.0, 0.0, 0.0, k);
+                    }
+                }
+            }
             // A PDF shading needs one colour space. Midpoint expansion can introduce RGB even
             // when every authored stop is CMYK/Gray; PDF/A can also change the output space.
             let components = |c: &Color| match c {
@@ -1750,5 +1766,56 @@ mod image_content_cache_tests {
         drop(d);
         assert!(payload.upgrade().is_none(), "no converted image or encoded key outlives this exporter");
         assert!(duplicate.upgrade().is_none());
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod unwind_tests {
+    use super::*;
+    use std::cell::Cell;
+
+    thread_local! {
+        static FAIL_NEXT_SURFACE: Cell<bool> = const { Cell::new(false) };
+    }
+
+    // Fail with live backend drawing state, so a missing guard or an unpatched destructor
+    // makes the child fail. Thread-local state keeps unrelated export tests independent.
+    #[allow(clippy::panic)] // Test-only fault injection exercises recovery with a live surface.
+    pub(super) fn inject(surface: &mut krilla::surface::Surface<'_>) {
+        if FAIL_NEXT_SURFACE.replace(false) {
+            surface.push_transform(&krilla::geom::Transform::from_translate(2.0, 3.0));
+            panic!("synthetic export drawing failure");
+        }
+    }
+
+    #[test]
+    fn export_entry_points_recover_in_a_subprocess() {
+        const CHILD: &str = "DESIGNCRAFT_PDF_EXPORT_PANIC_PROBE";
+        if std::env::var_os(CHILD).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "export::unwind_tests::export_entry_points_recover_in_a_subprocess", "--nocapture"])
+                .env(CHILD, "1")
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "export child failed: {:?}\n{}", output.status, String::from_utf8_lossy(&output.stderr));
+            assert!(String::from_utf8_lossy(&output.stdout).contains("all three export entry points recovered"));
+            return;
+        }
+        let doc = Document::new(&designcraft_doc::build::NewDocument { pages: 1, ..Default::default() });
+        let cache = Cache::new();
+        let source = export_pdf(&doc, &cache, &Default::default()).unwrap();
+        let parts = [(source, vec![(612.0, 792.0)])];
+        for entry in ["document", "booklet", "merge"] {
+            let export = || match entry {
+                "document" => export_pdf(&doc, &cache, &Default::default()),
+                "booklet" => export_booklet(&doc, &cache, &Default::default()).map(|report| report.bytes),
+                _ => merge_pdfs(&parts, None),
+            };
+            FAIL_NEXT_SURFACE.set(true);
+            assert!(matches!(export(), Err(PdfError::Write(message)) if message.contains("synthetic export drawing failure")), "{entry}");
+            let fresh = export().unwrap();
+            assert!(!hayro_syntax::Pdf::new(Arc::new(fresh)).unwrap().pages().is_empty(), "fresh {entry} export must still work");
+        }
+        println!("all three export entry points recovered");
     }
 }
