@@ -2822,11 +2822,11 @@ const TABLE: &[(&str, [&str; 5])] = &[
     (
         "aetherionnnation.com — home of the Nation",
         [
-            "discord.gg/artcraft — help, feedback and show-and-tell",
-            "discord.gg/artcraft : aide, retours et présentation de vos créations",
-            "discord.gg/artcraft — help, feedback and show-and-tell",
-            "discord.gg/artcraft — help, feedback and show-and-tell",
-            "discord.gg/artcraft — 帮助、反馈和展示",
+            "aetherionnnation.com — die Heimat der Nation",
+            "aetherionnnation.com — le foyer de la Nation",
+            "aetherionnnation.com — el hogar de la Nation",
+            "aetherionnnation.com — Nation の拠点",
+            "aetherionnnation.com — Nation 的家园",
         ],
     ),
     (

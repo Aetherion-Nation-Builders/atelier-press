@@ -944,7 +944,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("[No Group]", "[Bez skupiny]"),
     ("[None]", "[Žádný]"),
     ("[None] — choose a colour on the ramp.", "[Žádný] — vyberte barvu na spektru."),
-    ("discord.gg/artcraft — help, feedback and show-and-tell", "discord.gg/artcraft — pomoc, zpětná vazba a ukázky prací"),
     ("⌥-click clears overrides", "⌥-kliknutí zruší přepsání"),
     ("Alt-click clears overrides", "Alt-kliknutí zruší přepsání"),
     ("Apply \"{name}\", Clear Overrides", "Použít „{name}“, zrušit přepsání"),
