@@ -48,17 +48,19 @@ by its own renderer. Try it yourself with `File → New → Sample Document`, or
 
 ## Why DesignCraft
 
-- **Familiar.** InDesign's layout, tools, menus, panels and shortcuts: spreads and parent pages,
-  frames and threaded stories, the Control panel, paragraph and character styles, swatches, text
-  wrap and more. If you know InDesign, you already know how to use it.
+- **Familiar.** A familiar layout, tools, menus, panels and shortcuts: spreads and parent pages,
+  master pages, text frames, threaded text, paragraph and character styles, tables, text wrap and
+  more. Everything is right where you expect it.
 - **Beautiful type.** A Knuth–Plass paragraph composer (plus single-line), dictionary hyphenation
   (the public-domain Moby word list plus our own trained patterns), word, letter and glyph-scaling
   justification, keeps, optical margin alignment, columns, baseline grid, tabs, rules and shading.
   Line breaks are identical on screen and in PDF.
 - **Fast.** Multithreaded SIMD rendering (vello_cpu), copy-on-write documents with O(1) undo
   snapshots, and cached composition.
-- **Open.** A documented native format, IDML import and export, and PNG, PDF (PDF/X-4, PDF/A-2b)
-  and EPUB export.
+- **Open.** A documented native format, IDML import and export, INDD import (through
+  [indd-utils](https://github.com/storytold/indd-utils)), editable .pptx export, and PNG, PDF
+  (PDF/X-4, PDF/A-2b) and EPUB export.
+
   No subscription, no licence server, no telemetry.
 - **Agent-native.** Every menu item, tool gesture, panel control and dialog can be driven over a
   JSON control channel and an **MCP server**, so Claude and other agents can lay out and edit
@@ -150,10 +152,10 @@ egui frontend is a separate crate, so the UI can be swapped without touching the
 | L3 | `render` (vello_cpu) |
 | L4 | `tools` (pointer events → commands + overlays) |
 | L5 | `engine` (session, history, command registry) |
-| L6 | `ui-egui` (InDesign-style UI, control channel) |
+| L6 | `ui-egui` (publishing UI, control channel) |
 | L7 | `apps/designcraft`, `apps/designcraft-cli`, `apps/designcraft-web` |
 
-- **Status and milestones:** [ROADMAP.md](ROADMAP.md) (stage: pre-alpha); how close to InDesign: [`docs/target-app-parity.md`](docs/target-app-parity.md); known gaps: [`docs/gaps.md`](docs/gaps.md)
+- **Status and milestones:** [ROADMAP.md](ROADMAP.md) (stage: pre-alpha); feature assessment: [`docs/target-app-parity.md`](docs/target-app-parity.md); known gaps: [`docs/gaps.md`](docs/gaps.md)
 - **Contributor and agent rules** (clean-room, asset policy, quality gates): [`AGENTS.md`](AGENTS.md)
 - **Bundled assets:** every one is listed with its licence in [`ASSETS.md`](ASSETS.md)
 - **App icon and colour:** a calico cat in a polka-dot scarf on DesignCraft green `#7bb51c`; see [`assets/app-icon/`](assets/app-icon/README.md)
