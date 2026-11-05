@@ -45,7 +45,7 @@ pub(crate) fn flatten_x1a(pdf: &[u8], dpi: f32, pages: &[PageGraphics], warnings
     let opts = FlattenDocumentOptions {
         read: ReadOptions { raster_dpi: dpi, ..ReadOptions::default() },
         flatten: FlattenOptions { raster_dpi: dpi, ..FlattenOptions::default() },
-        producer: "DesignCraft".into(),
+        producer: "Atelier Press".into(),
         version: PdfVersion::Pdf14,
         pdfx_version: Some(VERSION.into()),
         ..FlattenDocumentOptions::default()

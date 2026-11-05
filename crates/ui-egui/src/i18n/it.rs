@@ -2041,5 +2041,4 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("OpenType font", "Font OpenType"),
     ("Variable font", "Font variabile"),
     ("Color font", "Font a colori"),
-    ("Nation", "Nation"),
 ];

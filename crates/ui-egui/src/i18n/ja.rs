@@ -1861,6 +1861,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("Insert Cross-Reference", "相互参照を挿入"),
     ("Insert Math Expression", "数式を挿入"),
     ("Insert Pages", "ページを挿入"),
+    ("Nation", "Nation"),
     ("Load DTD", "DTD を読み込み"),
     ("Load Swatches", "スウォッチを読み込み"),
     ("Margins and Columns", "マージン・段組"),
@@ -2181,7 +2182,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("Print Layer", "レイヤーをプリント"),
     ("Suppress Text Wrap When Layer is Hidden", "非表示レイヤーのテキストの回り込みを無視"),
     ("Justification…", "両端揃え…"),
-    ("Nation", "Nation"),
 ];
 
 /// Captions whose Japanese depends on where they appear: (English, context, Japanese).

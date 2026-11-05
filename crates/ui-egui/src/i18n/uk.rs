@@ -1973,7 +1973,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("Print Layer", "Друкувати шар"),
     ("Suppress Text Wrap When Layer is Hidden", "Вимикати обтікання текстом, коли шар приховано"),
     ("Justification…", "Вирівнювання за шириною…"),
-    ("Nation", "Nation"),
 ];
 
 /// Contexts whose Ukrainian noun differs from the shared action/text-layout label.

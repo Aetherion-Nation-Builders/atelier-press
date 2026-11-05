@@ -1596,6 +1596,8 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("Apply Cell Style", "Aplicar estilo de célula"),
     ("Apply Condition", "Aplicar condição"),
     ("Apply Parent to Pages…", "Aplicar página-mestre às páginas…"),
+    ("Atelier App Page…", "Página do aplicativo Atelier…"),
+    ("Atelier Website…", "Site do Atelier…"),
     ("Attributes", "Atributos"),
     ("Bevel and Emboss", "Chanfro e relevo"),
     ("Buttons", "Botões"),
@@ -1695,6 +1697,7 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("Convert Variable to Text", "Converter variável em texto"),
     ("Inspect Document", "Inspecionar documento"),
     ("Interface Color Theme", "Tema de cores da interface"),
+    ("Join the Nation…", "Junte-se à Nation…"),
     ("Last Object Below", "Último objeto abaixo"),
     ("Library Contents", "Conteúdo da biblioteca"),
     ("Library Items", "Itens da biblioteca"),
@@ -1970,5 +1973,4 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("Insert field", "Inserir campo"),
     ("Pass csv, rows, or bytes from the control channel.", "Passe csv, linhas ou bytes pelo canal de controle."),
     ("Panels", "Painéis"),
-    ("Nation", "Nation"),
 ];

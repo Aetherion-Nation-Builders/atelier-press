@@ -12,7 +12,9 @@
 pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/ai.storyteller.designcraft.png")),
     accent: Some([0x7b, 0xb5, 0x1c]),
-    ..craft_update::suite::DESIGNCRAFT
+    // Atelier Press: updates come from this repository's releases, never upstream's builds.
+    developer: "Aetherion Nation",
+    ..craft_update::app::App::new("designcraft", "Atelier Press", "Page layout and publishing", "Aetherion-Nation-Builders/atelier-press")
 };
 
 pub mod about;
