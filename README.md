@@ -32,7 +32,7 @@ The sections below are DesignCraft's own notes, kept as upstream writes them (th
 ## The sample magazine
 
 Every page below was laid out by DesignCraft from code (`crates/engine/src/sample.rs`) and exported
-by its own renderer. Try it yourself with `File → New → Sample Document`, or start the app with
+by its own renderer. Try it yourself with `Help → Sample Document`, or start the app with
 `--sample`.
 
 <table>
@@ -81,8 +81,9 @@ cargo xtask ci                                             # fmt, clippy, tests,
 
 Japanese text (UI and documents) uses fonts from
 [storytold/craft-fonts](https://github.com/storytold/craft-fonts), an optional build input (font
-files are never committed here; see craftrules
-[`standards/fonts.md`](https://github.com/storytold/craftrules/blob/main/standards/fonts.md)):
+files are never committed here; see the public
+[craft-fonts integration guide](https://github.com/storytold/craft-fonts/blob/main/docs/integration.md)
+for build instructions):
 
 ```sh
 git clone https://github.com/storytold/craft-fonts ../craft-fonts
@@ -148,11 +149,11 @@ egui frontend is a separate crate, so the UI can be swapped without touching the
 |---|---|
 | L0 | `geom` (paths, units & measurement parsing, corner options) · `color` (CMYK/RGB/Lab, swatches, tints, gradients) |
 | L1 | `doc` (spreads, pages, parents, layers, frames, stories, styles) · `fonts` (font DB, shaping, outlines) |
-| L2 | `compose` (the text engine) |
-| L3 | `render` (vello_cpu) |
+| L2 | `compose` (the text engine) · `images` |
+| L3 | `render` (vello_cpu) · `pdf` · `idml` · `epub` · `pptx` · `textimport` · `format` |
 | L4 | `tools` (pointer events → commands + overlays) |
 | L5 | `engine` (session, history, command registry) |
-| L6 | `ui-egui` (publishing UI, control channel) |
+| L6 | `ui-egui` (publishing UI, control channel) · `mcp` |
 | L7 | `apps/designcraft`, `apps/designcraft-cli`, `apps/designcraft-web` |
 
 - **Status and milestones:** [ROADMAP.md](ROADMAP.md) (stage: pre-alpha); feature assessment: [`docs/target-app-parity.md`](docs/target-app-parity.md); known gaps: [`docs/gaps.md`](docs/gaps.md)
