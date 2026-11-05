@@ -168,7 +168,6 @@ pub(super) const TABLE: &[(&str, &str)] = &[
     ("Insert Math Expression", "Insérer une expression mathématique"),
     ("Internet Standard RGB (sRGB)", "RVB standard Internet (sRGB)"),
     ("Invalid panel layout; restored the default dock", "Disposition des panneaux non valide ; disposition par défaut restaurée"),
-    ("Nation", "Nation"),
     ("Join the community", "Rejoindre la communauté"),
     ("Kerning", "Crénage"),
     ("Kerning/Tracking Step", "Pas de crénage/d'approche"),
