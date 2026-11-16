@@ -86,7 +86,7 @@ fn help_goes_to_stdout_and_succeeds_in_all_three_spellings() {
     let long = run(&["--help"]).succeeded("--help");
     assert!(long.starts_with("usage: designcraft-cli run"), "{long:?}");
     // The community links are under the usage block, for someone who has nowhere else to ask.
-    assert!(long.contains("Community:") && long.contains("discord"), "{long:?}");
+    assert!(long.contains("Community:") && long.contains("aetherionnnation.com"), "{long:?}");
     for spelling in ["-h", "help"] {
         assert_eq!(run(&[spelling]).succeeded(spelling), long, "{spelling} prints the same help");
     }
